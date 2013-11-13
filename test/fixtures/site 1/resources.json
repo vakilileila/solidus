@@ -1,0 +1,16 @@
+{
+	"resources": {
+		"test5": "https://hipster.sparkart.net/api/v1/resources/zxcv/my-resource-5",
+		"test6": {
+			"url": "https://hipster.sparkart.net/api/v1/resources/poiu/my-resource-6"
+		},
+		"test7": "https://hipster2.sparkart.net/api/v1/resources/lkjh/my-resource-7"
+	},
+	"options": {
+		"https://hipster2.sparkart.net/*": {
+			"headers": {
+				"key": "12345"
+			}
+		}
+	}
+}
