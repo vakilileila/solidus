@@ -160,6 +160,7 @@ describe( 'Solidus', function(){
 						.expect( 'Content-Type', /json/ )
 						.expect( 200 )
 						.end( function( err, res ){
+							console.log('res.body.resources',res.body.resources);
 							assert( res.body.resources.test.test );
 							assert( res.body.resources.test2.test );
 							assert( res.body.resources.test3.test );
