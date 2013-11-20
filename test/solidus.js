@@ -51,6 +51,15 @@ describe( 'Solidus', function(){
 				.get('/api/v1/resources/lkjh/my-resource-7')
 				.matchHeader( 'key', '12345' )
 				.reply( 200, { test: true });
+			nock('https://hipster.sparkart.net')
+				.get('/api/v1/resources/poiu/my-resource-8?test=true')
+				.reply( 200, { test: true });
+			nock('https://hipster.sparkart.net')
+				.get('/api/v1/resources/poiu/my-resource-9?test=3')
+				.reply( 200, { test: true });
+			nock('https://hipster.sparkart.net')
+				.get('/api/v1/resources/poiu/my-resource-9?test=')
+				.reply( 200, { test: false });
 			// hack that will work until .start callback is complete
 			solidus_server.on( 'ready', done );
 		});
@@ -160,7 +169,6 @@ describe( 'Solidus', function(){
 						.expect( 'Content-Type', /json/ )
 						.expect( 200 )
 						.end( function( err, res ){
-							console.log('res.body.resources',res.body.resources);
 							assert( res.body.resources.test.test );
 							assert( res.body.resources.test2.test );
 							assert( res.body.resources.test3.test );
@@ -168,6 +176,8 @@ describe( 'Solidus', function(){
 							assert( res.body.resources.test5.test );
 							assert( res.body.resources.test6.test );
 							assert( res.body.resources.test7.test );
+							assert( res.body.resources.test8.test );
+							assert( res.body.resources.test9.test );
 							callback( err );
 						});
 				}
