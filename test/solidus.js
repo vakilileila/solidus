@@ -735,7 +735,7 @@ describe( 'Solidus', function(){
       }, FILESYSTEM_DELAY );
     });
 
-    var test_preprocessor_contents = 'module.exports=function(context){context.test = true;return context;};';
+    var test_preprocessor_contents = 'module.exports.process=function(context){context.test = true;return context;};';
 
     it( 'Adds preprocessors when a preprocessor js file is added', function( done ){
       var s_request = request( solidus_server.router );
@@ -752,7 +752,7 @@ describe( 'Solidus', function(){
       }, FILESYSTEM_DELAY );
     });
 
-    var test_preprocessor_contents_2 = 'module.exports=function(context){context.test2 = true;return context;};';
+    var test_preprocessor_contents_2 = 'module.exports.process=function(context){context.test2 = true;return context;};';
 
     it( 'Updates preprocessors when their files change', function( done ){
       var s_request = request( solidus_server.router );
@@ -780,6 +780,72 @@ describe( 'Solidus', function(){
             done();
           });
       }, FILESYSTEM_DELAY );
+    });
+
+    var old_preprocessors_config =
+"module.exports = {\n\
+  'test.hbs': function() {\n\
+    return require('./preprocessors/test.js');\n\
+  }\n\
+};\n\
+"
+    var new_preprocessors_config =
+"module.exports = {\n\
+  'test.hbs': function() {\n\
+    return {\n\
+      process: function(context) {\n\
+        context.test_new = true;\n\
+        return context;\n\
+      }\n\
+    }\n\
+  }\n\
+};\n\
+"
+
+    it('Updates preprocessors config when preprocessors.js changes', function(done) {
+      var s_request = request(solidus_server.router);
+      fs.writeFileSync('preprocessors.js', new_preprocessors_config, DEFAULT_ENCODING);
+      setTimeout(function() {
+        s_request.get('/test.json')
+          .expect(200)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert(!res.body.test);
+            assert(res.body.test_new);
+            done();
+          });
+      }, FILESYSTEM_DELAY);
+    });
+
+    it('Clears preprocessors config when preprocessors.js is deleted', function(done) {
+      var s_request = request(solidus_server.router);
+      fs.unlinkSync('preprocessors.js');
+      setTimeout(function() {
+        s_request.get('/test.json')
+          .expect(200)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert(!res.body.test);
+            assert(!res.body.test_new);
+            done();
+          });
+      }, FILESYSTEM_DELAY);
+    });
+
+    it('Adds preprocessors config when preprocessors.js is added', function(done) {
+      var s_request = request(solidus_server.router);
+      fs.writeFileSync('preprocessors.js', new_preprocessors_config, DEFAULT_ENCODING);
+      setTimeout(function() {
+        s_request.get('/test.json')
+          .expect(200)
+          .end(function(err, res) {
+            if (err) throw err;
+            fs.writeFileSync('preprocessors.js', old_preprocessors_config, DEFAULT_ENCODING);
+            assert(!res.body.test);
+            assert(res.body.test_new);
+            done();
+          });
+      }, FILESYSTEM_DELAY);
     });
 
     it( 'Passes dev variables to view context', function( done ){
