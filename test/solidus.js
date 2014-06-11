@@ -9,6 +9,7 @@ var moment = require('moment');
 var request = require('supertest');
 var nock = require('nock');
 var zlib = require('zlib');
+var timekeeper = require('timekeeper');
 var solidus = require('../solidus.js');
 var Resource = require('../lib/resource.js');
 
@@ -641,6 +642,122 @@ describe( 'Solidus', function(){
             test_caching(4, 2, cb);
           }
           ], done);
+      });
+
+    });
+
+    describe('/api/resource.json', function() {
+      beforeEach(function() {
+        var now = new Date(1397524638000); // Test date rounded to the second, to simplify comparisons
+        timekeeper.freeze(now);
+      });
+
+      afterEach(function() {
+        timekeeper.reset();
+      });
+
+      it('fetches and renders the url in the query string', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect(200)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {test: 2});
+            done();
+          });
+      });
+
+      it('renders an error when missing url', function(done) {
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json')
+          .expect(400)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {error: "Invalid 'url' parameter"});
+            done();
+          });
+      });
+
+      it('renders an error when bad url', function(done) {
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=not-a-url')
+          .expect(400)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {error: "Invalid 'url' parameter"});
+            done();
+          });
+      });
+
+      it('fetches and renders an error when resource is invalid', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, 'this is not json');
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect(400)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {error: 'Invalid JSON: Unexpected token h'});
+            done();
+          });
+      });
+
+      it('returns the resource\'s freshness when the resource is valid and has caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, {test: 2}, {'Cache-Control': 'max-age=123'});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=123')
+          .expect('Expires', new Date(new Date().getTime() + 123 * 1000).toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
+      });
+
+      it('returns the default freshness when the resource is valid and has no caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=60')
+          .expect('Expires', new Date(new Date().getTime() + 60 * 1000).toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
+      });
+
+      it('returns the resource\'s freshness when the resource is invalid and has caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(400, {test: 2}, {'Cache-Control': 'max-age=123'});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=123')
+          .expect('Expires', new Date(new Date().getTime() + 123 * 1000).toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
+      });
+
+      it('returns no freshness when the resource is invalid and has no caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(400, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=0')
+          .expect('Expires', new Date().toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
       });
 
     });

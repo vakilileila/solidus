@@ -21,10 +21,23 @@ describe( 'CachedResource', function(){
   });
 
   describe( '.constructor()', function(){
-    it('sets expires_at to 60 seconds when no caching headers', function() {
+    it('sets has_expiration to false when no caching headers', function() {
+      has_expiration = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).has_expiration;
+
+      assert(!has_expiration);
+    });
+
+    it('sets has_expiration to true when caching headers', function() {
+      response.headers['cache-control'] = 's-maxage=100';
+      has_expiration = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).has_expiration;
+
+      assert(has_expiration);
+    });
+
+    it('sets expires_at to now when no caching headers', function() {
       expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
-      assert.equal(60 * 1000, expires_at - new Date().getTime());
+      assert.equal(new Date().getTime(), expires_at);
     });
 
     it('sets expires_at to s-maxage when present', function() {
@@ -101,6 +114,25 @@ describe( 'CachedResource', function(){
       expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal((100 - (30 + 3 + 5 + 7)) * 1000, expires_at - new Date().getTime());
+    });
+  });
+
+  describe( '.maxAge()', function(){
+    it('converts invalid expires_at to seconds from now', function() {
+      timekeeper.freeze(new Date().getTime() + 2 * 1000);
+
+      max_age = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).maxAge();
+
+      assert.equal(0, max_age);
+    });
+
+    it('converts valid expires_at to seconds from now', function() {
+      timekeeper.freeze(new Date().getTime() + 2 * 1000);
+
+      response.headers['cache-control'] = 'max-age=100';
+      max_age = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).maxAge();
+
+      assert.equal(98, max_age);
     });
   });
 
