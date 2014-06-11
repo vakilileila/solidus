@@ -760,6 +760,19 @@ describe( 'Solidus', function(){
           });
       });
 
+      it('fetches the url using the appropriate auth', function(done) {
+        nock('https://a.solid.us').get('/api-resource').matchHeader('key', '12345').reply(200, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://a.solid.us/api-resource')
+          .expect(200)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {test: 2});
+            done();
+          });
+      });
     });
   });
 
