@@ -349,8 +349,8 @@ describe( 'Solidus', function(){
               var preprocessedBy = [
                 'page_with_resources_and_partials.js',
                 'partial1_with_resources.js',
-                'partial2_with_resources.js',
-                'partial2_with_resources.js'
+                'partial2_with_resources',
+                'partial2_with_resources'
               ]
               assert.deepEqual(res.body.preprocessedBy, preprocessedBy);
               callback( err );
