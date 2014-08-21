@@ -10,6 +10,7 @@ var request = require('supertest');
 var nock = require('nock');
 var zlib = require('zlib');
 var solidus = require('../solidus.js');
+var SolidusServer = require('../lib/server.js');
 var Page = require('../lib/page.js');
 
 var original_path = __dirname;
@@ -229,6 +230,22 @@ describe( 'Solidus', function(){
           if( err ) throw err;
           done();
         });
+    });
+
+    it('Finds the list of partials used by each page', function(done) {
+      var dir = path.join(site1_path, 'views');
+      var partials = {
+        'partial1': path.join(dir, 'partial1.hbs'),
+        'partial2': path.join(dir, 'partial2.hbs'),
+        'partial3': path.join(dir, 'partial3.hbs'),
+        'partial/4': path.join(dir, 'partial/4.hbs'),
+        'partial9': path.join(dir, 'partial9.hbs'),
+        "partial'10": path.join(dir, "partial'10.hbs"),
+        'partial11': path.join(dir, 'partial11.hbs'),
+        'partial"12': path.join(dir, 'partial"12.hbs')
+      };
+      assert.deepEqual(solidus_server.views[solidus_server.pathFromPartialName('multiple_partials')].params.partials, partials);
+      done();
     });
 
     it( 'Fetches resources and adds them to the page context', function( done ){
@@ -870,6 +887,34 @@ describe( 'Solidus', function(){
         assert(/\/helpers preprocessed in \d+ms/.test(last_message.message));
         done();
       });
+    });
+  });
+
+  describe('Page.toObjectString', function() {
+    var solidus_server;
+
+    before(function(done) {
+      process.chdir(site1_path);
+      solidus_server = new SolidusServer({start_server: false});
+      solidus_server.on('ready', done);
+    });
+
+    after(function() {
+      process.chdir(original_path);
+    });
+
+    it('returns a JS string version of the parsed view', function(done) {
+      var parent_file_path = path.join(solidus_server.paths.assets, 'scripts', 'index.js');
+      var expected = '{resources:{"cache1":{"url":"https://solid.us/cache/1"},"cache2":{"url":"https://solid.us/cache/2"}},preprocessor:require("../../preprocessors/index.js"),template:require("../../views/with_all_features.hbs"),template_options:{helpers:require("../../helpers.js"),partials:{"partial":require("../../views/partial.hbs"),"partial_holder":require("../../views/partial_holder.hbs"),"partial_holder2":require("../../views/partial_holder2.hbs"),"deeply/partial":require("../../views/deeply/partial.hbs")}}}';
+      assert.equal(solidus_server.views[solidus_server.pathFromPartialName('with_all_features')].toObjectString(parent_file_path), expected);
+      done();
+    });
+
+    it('with missing features', function(done) {
+      var parent_file_path = path.join(solidus_server.paths.assets, 'scripts', 'index.js');
+      var expected = '{template:require("../../views/partial.hbs"),template_options:{helpers:require("../../helpers.js")}}';
+      assert.equal(solidus_server.views[solidus_server.pathFromPartialName('partial')].toObjectString(parent_file_path), expected);
+      done();
     });
   });
 });
