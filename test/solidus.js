@@ -13,7 +13,7 @@ var timekeeper = require('timekeeper');
 var solidus = require('../solidus.js');
 var SolidusServer = require('../lib/server.js');
 var Page = require('../lib/page.js');
-var Resource = require('../lib/resource.js');
+var CachedResource = require('../lib/cached_resource.js');
 
 var original_path = __dirname;
 var site1_path = path.join( original_path, 'fixtures', 'site 1' );
@@ -69,7 +69,7 @@ describe( 'Solidus', function(){
       }];
       var combined_redirects = JSON.stringify( original_redirects_arr.concat( temporal_redirects, overlapping_redirects ) );
       fs.writeFileSync( 'redirects.json', combined_redirects, DEFAULT_ENCODING );
-      Resource.cache.reset();
+      CachedResource.cache.reset();
 
       // mock http endpoints for resources
       nock('https://solid.us').get('/basic/1').reply( 200, { test: true } );

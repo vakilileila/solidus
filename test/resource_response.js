@@ -1,8 +1,8 @@
 var assert = require('assert');
 var timekeeper = require('timekeeper');
-var CachedResource = require('../lib/cached_resource.js');
+var ResourceResponse = require('../lib/resource_response.js');
 
-describe( 'CachedResource', function(){
+describe( 'ResourceResponse', function(){
   var request_time; // When the request was sent
   var response_time; // When the response was received
   var response;
@@ -22,41 +22,41 @@ describe( 'CachedResource', function(){
 
   describe( '.constructor()', function(){
     it('sets has_expiration to false when no caching headers', function() {
-      has_expiration = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).has_expiration;
+      has_expiration = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).has_expiration;
 
       assert(!has_expiration);
     });
 
     it('sets has_expiration to true when caching headers', function() {
       response.headers['cache-control'] = 's-maxage=100';
-      has_expiration = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).has_expiration;
+      has_expiration = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).has_expiration;
 
       assert(has_expiration);
     });
 
     it('sets expires_at to now when no caching headers', function() {
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal(new Date().getTime(), expires_at);
     });
 
     it('sets expires_at to s-maxage when present', function() {
       response.headers['cache-control'] = 's-maxage=100';
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal(100 * 1000, expires_at - new Date().getTime());
     });
 
     it('sets expires_at to max-age when present', function() {
       response.headers['cache-control'] = 'max-age=100';
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal(100 * 1000, expires_at - new Date().getTime());
     });
 
     it('sets expires_at to expires when present', function() {
       response.headers['expires'] = new Date(request_time + 100 * 1000).toUTCString();
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal(100 * 1000, expires_at - new Date().getTime());
     });
@@ -64,7 +64,7 @@ describe( 'CachedResource', function(){
     it('sets expires_at to s-maxage when s-maxage, max-age and expires present', function() {
       response.headers['cache-control'] = 'max-age=100,s-maxage=200';
       response.headers['expires'] = new Date(request_time + 300 * 1000).toUTCString();
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal(200 * 1000, expires_at - new Date().getTime());
     });
@@ -72,7 +72,7 @@ describe( 'CachedResource', function(){
     it('sets expires_at to max-age when max-age and expires present', function() {
       response.headers['cache-control'] = 'max-age=200';
       response.headers['expires'] = new Date(request_time + 300 * 1000).toUTCString();
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal(200 * 1000, expires_at - new Date().getTime());
     });
@@ -91,7 +91,7 @@ describe( 'CachedResource', function(){
 
       // +7 second delay until response is processed
       timekeeper.freeze(now += 7 * 1000);
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal((100 - (5 + 7)) * 1000, expires_at - new Date().getTime());
     });
@@ -111,7 +111,7 @@ describe( 'CachedResource', function(){
 
       // +7 second delay until response is processed
       timekeeper.freeze(now += 7 * 1000);
-      expires_at = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
+      expires_at = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).expires_at;
 
       assert.equal((100 - (30 + 3 + 5 + 7)) * 1000, expires_at - new Date().getTime());
     });
@@ -121,7 +121,7 @@ describe( 'CachedResource', function(){
     it('converts invalid expires_at to seconds from now', function() {
       timekeeper.freeze(new Date().getTime() + 2 * 1000);
 
-      max_age = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).maxAge();
+      max_age = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).maxAge();
 
       assert.equal(0, max_age);
     });
@@ -130,7 +130,7 @@ describe( 'CachedResource', function(){
       timekeeper.freeze(new Date().getTime() + 2 * 1000);
 
       response.headers['cache-control'] = 'max-age=100';
-      max_age = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time}).maxAge();
+      max_age = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time}).maxAge();
 
       assert.equal(98, max_age);
     });
@@ -139,29 +139,29 @@ describe( 'CachedResource', function(){
   describe( '.expired()', function(){
     it('returns whether expires_at is in the past', function() {
       response.headers['cache-control'] = 'max-age=0';
-      var cached_resource = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time});
+      var resource_response = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time});
 
-      assert(cached_resource.expired());
+      assert(resource_response.expired());
     });
   });
 
   describe( '.lock()', function(){
     it('prevents locking before .unlock()', function() {
-      var cached_resource = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time});
+      var resource_response = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time});
 
-      assert(cached_resource.lock());
-      assert(!cached_resource.lock());
-      cached_resource.unlock();
-      assert(cached_resource.lock());
+      assert(resource_response.lock());
+      assert(!resource_response.lock());
+      resource_response.unlock();
+      assert(resource_response.lock());
     });
 
     it('prevents locking before 30 seconds', function() {
-      var cached_resource = new CachedResource({response: response, data: null, request_time: request_time, response_time: response_time});
+      var resource_response = new ResourceResponse({response: response, data: null, request_time: request_time, response_time: response_time});
 
-      assert(cached_resource.lock());
-      assert(!cached_resource.lock());
+      assert(resource_response.lock());
+      assert(!resource_response.lock());
       timekeeper.freeze(new Date().getTime() + 40 * 1000);
-      assert(cached_resource.lock());
+      assert(resource_response.lock());
     });
   });
 });
