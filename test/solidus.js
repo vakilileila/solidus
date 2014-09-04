@@ -9,9 +9,11 @@ var moment = require('moment');
 var request = require('supertest');
 var nock = require('nock');
 var zlib = require('zlib');
+var timekeeper = require('timekeeper');
 var solidus = require('../solidus.js');
 var SolidusServer = require('../lib/server.js');
 var Page = require('../lib/page.js');
+var Resource = require('../lib/resource.js');
 
 var original_path = __dirname;
 var site1_path = path.join( original_path, 'fixtures', 'site 1' );
@@ -67,7 +69,7 @@ describe( 'Solidus', function(){
       }];
       var combined_redirects = JSON.stringify( original_redirects_arr.concat( temporal_redirects, overlapping_redirects ) );
       fs.writeFileSync( 'redirects.json', combined_redirects, DEFAULT_ENCODING );
-      Page.cache.reset();
+      Resource.cache.reset();
 
       // mock http endpoints for resources
       nock('https://solid.us').get('/basic/1').reply( 200, { test: true } );
@@ -76,7 +78,7 @@ describe( 'Solidus', function(){
       nock('https://solid.us').get('/resource/options/url').reply( 200, { test: true } );
       nock('https://solid.us').get('/resource/options/query?test=true').reply( 200, { test: true } );
       nock('https://solid.us').get('/resource/options/dynamic/query?test=3').reply( 200, { test: true } );
-      nock('https://solid.us').get('/resource/options/double/dynamic/query?test2=4&test=3').reply( 200, { test: true } );
+      nock('https://solid.us').get('/resource/options/double/dynamic/query?test=3&test2=4').reply( 200, { test: true } );
       nock('https://solid.us').get('/centralized/auth/query').reply( 200, { test: true } );
       nock('https://solid.us').get('/resource/options/headers').matchHeader( 'key', '12345' ).reply( 200, { test: true } );
       nock('https://a.solid.us').get('/centralized/auth').matchHeader( 'key', '12345' ).reply( 200, { test: true } );
@@ -84,7 +86,7 @@ describe( 'Solidus', function(){
       // empty dynamic segments
       nock('https://solid.us').get('/dynamic/segment/').reply( 200, { test: false } );
       nock('https://solid.us').get('/resource/options/dynamic/query?test=').reply( 200, { test: false } );
-      nock('https://solid.us').get('/resource/options/double/dynamic/query?test2=&test=').reply( 200, { test: false } );
+      nock('https://solid.us').get('/resource/options/double/dynamic/query?test=&test2=').reply( 200, { test: false } );
 
       async.parallel([
         // compressed resources
@@ -244,7 +246,7 @@ describe( 'Solidus', function(){
         'partial11': path.join(dir, 'partial11.hbs'),
         'partial"12': path.join(dir, 'partial"12.hbs')
       };
-      assert.deepEqual(solidus_server.views[solidus_server.pathFromPartialName('multiple_partials')].params.partials, partials);
+      assert.deepEqual(solidus_server.views[solidus_server.pathFromPartialName('multiple_partials')].partials, partials);
       done();
     });
 
@@ -627,6 +629,135 @@ describe( 'Solidus', function(){
       });
 
     });
+
+    describe('/api/resource.json', function() {
+      beforeEach(function() {
+        var now = new Date(1397524638000); // Test date rounded to the second, to simplify comparisons
+        timekeeper.freeze(now);
+      });
+
+      afterEach(function() {
+        timekeeper.reset();
+      });
+
+      it('fetches and renders the url in the query string', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect(200)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {test: 2});
+            done();
+          });
+      });
+
+      it('renders an error when missing url', function(done) {
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json')
+          .expect(400)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {error: "Missing 'url' parameter"});
+            done();
+          });
+      });
+
+      it('renders an error when bad url', function(done) {
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=not-a-url')
+          .expect(400)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {error: "Invalid 'url' parameter"});
+            done();
+          });
+      });
+
+      it('fetches and renders an error when resource is invalid', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, 'this is not json');
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect(400)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {error: 'Invalid JSON: Unexpected token h'});
+            done();
+          });
+      });
+
+      it('returns the resource\'s freshness when the resource is valid and has caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, {test: 2}, {'Cache-Control': 'max-age=123'});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=123')
+          .expect('Expires', new Date(new Date().getTime() + 123 * 1000).toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
+      });
+
+      it('returns the default freshness when the resource is valid and has no caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(200, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=60')
+          .expect('Expires', new Date(new Date().getTime() + 60 * 1000).toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
+      });
+
+      it('returns the resource\'s freshness when the resource is invalid and has caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(400, {test: 2}, {'Cache-Control': 'max-age=123'});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=123')
+          .expect('Expires', new Date(new Date().getTime() + 123 * 1000).toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
+      });
+
+      it('returns no freshness when the resource is invalid and has no caching headers', function(done) {
+        nock('https://solid.us').get('/api-resource').reply(400, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://solid.us/api-resource')
+          .expect('Cache-Control', 'public, max-age=0')
+          .expect('Expires', new Date().toUTCString())
+          .end(function(err, res) {
+            if (err) throw err;
+            done();
+          });
+      });
+
+      it('fetches the url using the appropriate auth', function(done) {
+        nock('https://a.solid.us').get('/api-resource').matchHeader('key', '12345').reply(200, {test: 2});
+
+        var s_request = request(solidus_server.router);
+        s_request.get('/api/resource.json?url=https://a.solid.us/api-resource')
+          .expect(200)
+          .expect('Content-Type', /json/)
+          .end(function(err, res) {
+            if (err) throw err;
+            assert.deepEqual(res.body, {test: 2});
+            done();
+          });
+      });
+    });
   });
 
   describe( 'development', function(){
@@ -905,7 +1036,7 @@ describe( 'Solidus', function(){
 
     it('returns a JS string version of the parsed view', function(done) {
       var parent_file_path = path.join(solidus_server.paths.assets, 'scripts', 'index.js');
-      var expected = '{resources:{"cache1":{"url":"https://solid.us/cache/1"},"cache2":{"url":"https://solid.us/cache/2"}},preprocessor:require("../../preprocessors/index.js"),template:require("../../views/with_all_features.hbs"),template_options:{helpers:require("../../helpers.js"),partials:{"partial":require("../../views/partial.hbs"),"partial_holder":require("../../views/partial_holder.hbs"),"partial_holder2":require("../../views/partial_holder2.hbs"),"deeply/partial":require("../../views/deeply/partial.hbs")}}}';
+      var expected = '{resources:{"cache1":"https://solid.us/cache/1","cache2":"https://solid.us/cache/2"},preprocessor:require("../../preprocessors/index.js"),template:require("../../views/with_all_features.hbs"),template_options:{helpers:require("../../helpers.js"),partials:{"partial":require("../../views/partial.hbs"),"partial_holder":require("../../views/partial_holder.hbs"),"partial_holder2":require("../../views/partial_holder2.hbs"),"deeply/partial":require("../../views/deeply/partial.hbs")}}}';
       assert.equal(solidus_server.views[solidus_server.pathFromPartialName('with_all_features')].toObjectString(parent_file_path), expected);
       done();
     });
