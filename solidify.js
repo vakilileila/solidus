@@ -24,7 +24,7 @@ module.exports = transformTools.makeRequireTransform(
       }
 
       if (solidus_server.ready) {
-        var view = solidus_server.views[solidus_server.pathFromPartialName(view_name)];
+        var view = solidus_server.views[solidus_server.viewPath(view_name)];
         callback(null, view ? view.toObjectString(opts.file) : null);
       } else {
         setImmediate(waitForSolidus);

@@ -236,17 +236,20 @@ describe( 'Solidus', function(){
 
     it('Finds the list of partials used by each page', function(done) {
       var dir = path.join(site1_path, 'views');
+      var extra_dir = path.join(site1_path, 'node_modules');
       var partials = {
-        'partial1': path.join(dir, 'partial1.hbs'),
-        'partial2': path.join(dir, 'partial2.hbs'),
-        'partial3': path.join(dir, 'partial3.hbs'),
-        'partial/4': path.join(dir, 'partial/4.hbs'),
-        'partial9': path.join(dir, 'partial9.hbs'),
-        "partial'10": path.join(dir, "partial'10.hbs"),
-        'partial11': path.join(dir, 'partial11.hbs'),
-        'partial"12': path.join(dir, 'partial"12.hbs')
+        'partial1': path.join(extra_dir, 'partial1.hbs'),
+        'partial2': path.join(extra_dir, 'partial2.hbs'),
+        'partial3': path.join(extra_dir, 'partial3.hbs'),
+        'partial/4': path.join(extra_dir, 'partial/4.hbs'),
+        'partial9': path.join(extra_dir, 'partial9.hbs'),
+        "partial'10": path.join(extra_dir, "partial'10.hbs"),
+        'partial11': path.join(extra_dir, 'partial11.hbs'),
+        'partial"12': path.join(extra_dir, 'partial"12.hbs'),
+        'extra/partial': path.join(extra_dir, 'extra/partial.hbs'),
+        'extra/conflict': path.join(dir, 'extra/conflict.hbs')
       };
-      assert.deepEqual(solidus_server.views[solidus_server.pathFromPartialName('multiple_partials')].partials, partials);
+      assert.deepEqual(solidus_server.views[solidus_server.viewPath('multiple_partials')].partials, partials);
       done();
     });
 
@@ -414,6 +417,15 @@ describe( 'Solidus', function(){
             .expect( 200 )
             .end( function( err, res ){
               assert( res.text == 'deeply/partial.hbs' );
+              callback( err );
+            });
+        },
+        function( callback ){
+          s_request
+            .get('/partial_holder3/')
+            .expect( 200 )
+            .end( function( err, res ){
+              assert.equal( res.text, 'partial.hbs\nPartial from external module.\nPartial with same path as site partial (site 1/views/extra/conflict).' );
               callback( err );
             });
         }
@@ -1037,14 +1049,14 @@ describe( 'Solidus', function(){
     it('returns a JS string version of the parsed view', function(done) {
       var parent_file_path = path.join(solidus_server.paths.assets, 'scripts', 'index.js');
       var expected = '{resources:{"cache1":"https://solid.us/cache/1","cache2":"https://solid.us/cache/2"},preprocessor:require("../../preprocessors/index.js"),template:require("../../views/with_all_features.hbs"),template_options:{helpers:require("../../helpers.js"),partials:{"partial":require("../../views/partial.hbs"),"partial_holder":require("../../views/partial_holder.hbs"),"partial_holder2":require("../../views/partial_holder2.hbs"),"deeply/partial":require("../../views/deeply/partial.hbs")}}}';
-      assert.equal(solidus_server.views[solidus_server.pathFromPartialName('with_all_features')].toObjectString(parent_file_path), expected);
+      assert.equal(solidus_server.views[solidus_server.viewPath('with_all_features')].toObjectString(parent_file_path), expected);
       done();
     });
 
     it('with missing features', function(done) {
       var parent_file_path = path.join(solidus_server.paths.assets, 'scripts', 'index.js');
       var expected = '{template:require("../../views/partial.hbs"),template_options:{helpers:require("../../helpers.js")}}';
-      assert.equal(solidus_server.views[solidus_server.pathFromPartialName('partial')].toObjectString(parent_file_path), expected);
+      assert.equal(solidus_server.views[solidus_server.viewPath('partial')].toObjectString(parent_file_path), expected);
       done();
     });
   });
