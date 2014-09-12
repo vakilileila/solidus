@@ -36,7 +36,8 @@
     "handlebars-helper": "~0.0.9",
     "worker-farm": "~0.3.1",
     "raven": "^0.6.2",
-    "socket.io": "~1.0.6"
+    "socket.io": "~1.0.6",
+    "solidus-client": "git+https://github.com/solidusjs/solidus-client.git#solidus-client"
   },
   "devDependencies": {
     "mocha": "~1.9.0",
