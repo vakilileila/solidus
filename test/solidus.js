@@ -336,6 +336,12 @@ describe( 'Solidus', function(){
           s_request.get('/redirect7/12-34-56-78').expect( 'location', '/new/56/12/78', callback );
         },
         function( callback ){
+          s_request.get('/redirect8/old/path').expect( 'location', '/new/path/OLD', callback );
+        },
+        function( callback ){
+          s_request.get('/redirect9/12-34-56-78').expect( 'location', '/new/56/12/1078', callback );
+        },
+        function( callback ){
           s_request.get('/past-redirect').expect( 404, callback );
         },
         function( callback ){

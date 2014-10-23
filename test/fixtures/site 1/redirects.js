@@ -24,4 +24,14 @@ module.exports = [
 }, {
   from: /\/redirect7\/(\d+)-\d+-(\d+)-(\d+)/,
   to: "/new/{1}/{0}/{2}"
+}, {
+  from: "/redirect8/{dynamic}/{route}",
+  to: function(params) {
+    return "/new/{route}/" + params.dynamic.toUpperCase();
+  }
+}, {
+  from: /\/redirect9\/(\d+)-\d+-(\d+)-(\d+)/,
+  to: function(params) {
+    return "/new/{1}/{0}/" + (1000 + parseInt(params['2']));
+  }
 }];
